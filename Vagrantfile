@@ -167,6 +167,9 @@ Vagrant.configure("2") do |config|
           config.ignition.path = 'config.ign'
         end
       end
+
+      # rke cli install
+      config.vm.provision "shell", path: "rke-install.sh", :privileged => true
     end
   end
 end
