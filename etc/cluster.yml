@@ -1,0 +1,25 @@
+---
+nodes:
+  - address: 127.0.0.1
+    user: ubuntu
+    role: [controlplane]
+  - address: 127.0.0.1
+    user: ubuntu
+    role: [worker]
+  - address: 127.0.0.1
+    user: ubuntu
+    role: [etcd]
+
+services:
+  etcd:
+    image: quay.io/coreos/etcd:latest
+  kube-api:
+    image: rancher/k8s:v1.8.3-rancher2
+  kube-controller:
+    image: rancher/k8s:v1.8.3-rancher2
+  scheduler:
+    image: rancher/k8s:v1.8.3-rancher2
+  kubelet:
+    image: rancher/k8s:v1.8.3-rancher2
+  kubeproxy:
+    image: rancher/k8s:v1.8.3-rancher2

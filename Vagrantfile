@@ -1,175 +1,133 @@
 # -*- mode: ruby -*-
-# # vi: set ft=ruby :
+# vi: set ft=ruby :
 
-require 'fileutils'
+# Vagrantfile API/syntax version. Don't touch unless you know what you're doing!
+VAGRANTFILE_API_VERSION = "2"
 
-Vagrant.require_version ">= 1.6.0"
+Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
+  config.vm.box = "ubuntu/xenial64"
 
-# Make sure the vagrant-ignition plugin is installed
-required_plugins = %w(vagrant-ignition)
+  config.vm.network :private_network, ip: "10.9.0.210"
+  # config.vm.network "public_network"
 
-plugins_to_install = required_plugins.select { |plugin| not Vagrant.has_plugin? plugin }
-if not plugins_to_install.empty?
-  puts "Installing plugins: #{plugins_to_install.join(' ')}"
-  if system "vagrant plugin install #{plugins_to_install.join(' ')}"
-    exec "vagrant #{ARGV.join(' ')}"
-  else
-    abort "Installation of one or more plugins has failed. Aborting."
-  end
-end
-
-CLOUD_CONFIG_PATH = File.join(File.dirname(__FILE__), "user-data")
-IGNITION_CONFIG_PATH = File.join(File.dirname(__FILE__), "config.ign")
-CONFIG = File.join(File.dirname(__FILE__), "config.rb")
-
-# Defaults for config options defined in CONFIG
-$num_instances = 1
-$instance_name_prefix = "core"
-$enable_serial_logging = false
-$share_home = false
-$vm_gui = false
-$vm_memory = 1024
-$vm_cpus = 1
-$vb_cpuexecutioncap = 100
-$shared_folders = {}
-$forwarded_ports = {}
-
-# Attempt to apply the deprecated environment variable NUM_INSTANCES to
-# $num_instances while allowing config.rb to override it
-if ENV["NUM_INSTANCES"].to_i > 0 && ENV["NUM_INSTANCES"]
-  $num_instances = ENV["NUM_INSTANCES"].to_i
-end
-
-if File.exist?(CONFIG)
-  require CONFIG
-end
-
-# Use old vb_xxx config variables when set
-def vm_gui
-  $vb_gui.nil? ? $vm_gui : $vb_gui
-end
-
-def vm_memory
-  $vb_memory.nil? ? $vm_memory : $vb_memory
-end
-
-def vm_cpus
-  $vb_cpus.nil? ? $vm_cpus : $vb_cpus
-end
-
-Vagrant.configure("2") do |config|
-  # always use Vagrants insecure key
-  config.ssh.insert_key = false
-  # forward ssh agent to easily ssh into the different machines
   config.ssh.forward_agent = true
 
-  config.vm.box = "coreos-alpha"
-  config.vm.box_url = "https://alpha.release.core-os.net/amd64-usr/current/coreos_production_vagrant_virtualbox.json"
+  # Share an additional folder to the guest VM. The first argument is
+  # the path on the host to the actual folder. The second argument is
+  # the path on the guest to mount the folder. And the optional third
+  # argument is a set of non-required options.
+  config.vm.synced_folder 'etc', '/usr/local/etc'
 
-  ["vmware_fusion", "vmware_workstation"].each do |vmware|
-    config.vm.provider vmware do |v, override|
-      override.vm.box_url = "https://alpha.release.core-os.net/amd64-usr/current/coreos_production_vagrant_vmware_fusion.json"
-    end
+  # Provider-specific configuration so you can fine-tune various
+  # backing providers for Vagrant. These expose provider-specific options.
+  # Example for VirtualBox:
+  #
+  # config.vm.provider "virtualbox" do |vb|
+  #   # Don't boot with headless mode
+  #   vb.gui = true
+  #
+  #   # Use VBoxManage to customize the VM. For example to change memory:
+  #   vb.customize ["modifyvm", :id, "--memory", "1024"]
+  # end
+  config.vm.provider :virtualbox do |vb|
+    # Don't boot with headless mode
+    #   vb.gui = true
+
+    # Enable creating symlinks between guest and host
+    vb.customize [
+      # see https://github.com/mitchellh/vagrant/issues/713#issuecomment-17296765
+      # 1) Added these lines to my config :
+      #
+      # 2) run this command in an admin command prompt on windows :
+      #    >> fsutil behavior set SymlinkEvaluation L2L:1 R2R:1 L2R:1 R2L:1
+      #    see http://technet.microsoft.com/ja-jp/library/cc785435%28v=ws.10%29.aspx
+      # 3) REBOOT HOST MACHINE
+      # 4) 'vagrant up' from an admin command prompt
+      "setextradata", :id,
+      "VBoxInternal2/SharedFoldersEnableSymlinksCreate/vagrant-root", "1"
+    ]
+
+    # Use VBoxManage to customize the VM. For example to change memory:
+    vb.customize [
+      'modifyvm', :id,
+      '--natdnshostresolver1', 'on',
+      '--memory', '512',
+      '--cpus', '2'
+    ]
   end
 
-  config.vm.provider :virtualbox do |v|
-    # On VirtualBox, we don't have guest additions or a functional vboxsf
-    # in CoreOS, so tell Vagrant that so it can be smarter.
-    v.check_guest_additions = false
-    v.functional_vboxsf     = false
-    # enable ignition (this is always done on virtualbox as this is how the ssh key is added to the system)
-    config.ignition.enabled = true
-  end
+  #
+  # View the documentation for the provider you're using for more
+  # information on available options.
 
-  # plugin conflict
-  if Vagrant.has_plugin?("vagrant-vbguest") then
-    config.vbguest.auto_update = false
-  end
+  # Enable provisioning with Puppet stand alone.  Puppet manifests
+  # are contained in a directory path relative to this Vagrantfile.
+  # You will need to create the manifests directory and a manifest in
+  # the file centos65.pp in the manifests_path directory.
+  #
+  # An example Puppet manifest to provision the message of the day:
+  #
+  # # group { "puppet":
+  # #   ensure => "present",
+  # # }
+  # #
+  # # File { owner => 0, group => 0, mode => 0644 }
+  # #
+  # # file { '/etc/motd':
+  # #   content => "Welcome to your Vagrant-built virtual machine!
+  # #               Managed by Puppet.\n"
+  # # }
+  #
+  # config.vm.provision "puppet" do |puppet|
+  #   puppet.manifests_path = "manifests"
+  #   puppet.manifest_file  = "site.pp"
+  # end
 
-  (1..$num_instances).each do |i|
-    config.vm.define vm_name = "%s-%02d" % [$instance_name_prefix, i] do |config|
-      config.vm.hostname = vm_name
+  # Enable provisioning with chef solo, specifying a cookbooks path, roles
+  # path, and data_bags path (all relative to this Vagrantfile), and adding
+  # some recipes and/or roles.
+  #
+  # config.vm.provision "chef_solo" do |chef|
+  #   chef.cookbooks_path = "../my-recipes/cookbooks"
+  #   chef.roles_path = "../my-recipes/roles"
+  #   chef.data_bags_path = "../my-recipes/data_bags"
+  #   chef.add_recipe "mysql"
+  #   chef.add_role "web"
+  #
+  #   # You may also specify custom JSON attributes:
+  #   chef.json = { :mysql_password => "foo" }
+  # end
 
-      if $enable_serial_logging
-        logdir = File.join(File.dirname(__FILE__), "log")
-        FileUtils.mkdir_p(logdir)
+  # Enable provisioning with chef server, specifying the chef server URL,
+  # and the path to the validation key (relative to this Vagrantfile).
+  #
+  # The Opscode Platform uses HTTPS. Substitute your organization for
+  # ORGNAME in the URL and validation key.
+  #
+  # If you have your own Chef Server, use the appropriate URL, which may be
+  # HTTP instead of HTTPS depending on your configuration. Also change the
+  # validation key to validation.pem.
+  #
+  # config.vm.provision "chef_client" do |chef|
+  #   chef.chef_server_url = "https://api.opscode.com/organizations/ORGNAME"
+  #   chef.validation_key_path = "ORGNAME-validator.pem"
+  # end
+  #
+  # If you're using the Opscode platform, your validator client is
+  # ORGNAME-validator, replacing ORGNAME with your organization name.
+  #
+  # If you have your own Chef Server, the default validation client name is
+  # chef-validator, unless you changed the configuration.
+  #
+  #   chef.validation_client_name = "ORGNAME-validator"
 
-        serialFile = File.join(logdir, "%s-serial.txt" % vm_name)
-        FileUtils.touch(serialFile)
 
-        ["vmware_fusion", "vmware_workstation"].each do |vmware|
-          config.vm.provider vmware do |v, override|
-            v.vmx["serial0.present"] = "TRUE"
-            v.vmx["serial0.fileType"] = "file"
-            v.vmx["serial0.fileName"] = serialFile
-            v.vmx["serial0.tryNoRxLoss"] = "FALSE"
-          end
-        end
+  # rke cli install
+  config.vm.provision "shell", path: "rke-install.sh", :privileged => true
 
-        config.vm.provider :virtualbox do |vb, override|
-          vb.customize ["modifyvm", :id, "--uart1", "0x3F8", "4"]
-          vb.customize ["modifyvm", :id, "--uartmode1", serialFile]
-        end
-      end
+  # install the vagrant ssh key
+  config.vm.provision "shell", :inline => 'mkdir -p ~/.ssh && curl -Ss https://raw.githubusercontent.com/hashicorp/vagrant/master/keys/vagrant > ~/.ssh/id_rsa && chmod 400 ~/.ssh/id_rsa'
 
-      if $expose_docker_tcp
-        config.vm.network "forwarded_port", guest: 2375, host: ($expose_docker_tcp + i - 1), host_ip: "127.0.0.1", auto_correct: true
-      end
-
-      $forwarded_ports.each do |guest, host|
-        config.vm.network "forwarded_port", guest: guest, host: host, auto_correct: true
-      end
-
-      ["vmware_fusion", "vmware_workstation"].each do |vmware|
-        config.vm.provider vmware do |v|
-          v.gui = vm_gui
-          v.vmx['memsize'] = vm_memory
-          v.vmx['numvcpus'] = vm_cpus
-        end
-      end
-
-      config.vm.provider :virtualbox do |vb|
-        vb.gui = vm_gui
-        vb.memory = vm_memory
-        vb.cpus = vm_cpus
-        vb.customize ["modifyvm", :id, "--cpuexecutioncap", "#{$vb_cpuexecutioncap}"]
-        config.ignition.config_obj = vb
-      end
-
-      ip = "172.17.8.#{i+100}"
-      config.vm.network :private_network, ip: ip
-      # This tells Ignition what the IP for eth1 (the host-only adapter) should be
-      config.ignition.ip = ip
-
-      # Uncomment below to enable NFS for sharing the host machine into the coreos-vagrant VM.
-      #config.vm.synced_folder ".", "/home/core/share", id: "core", :nfs => true, :mount_options => ['nolock,vers=3,udp']
-      $shared_folders.each_with_index do |(host_folder, guest_folder), index|
-        config.vm.synced_folder host_folder.to_s, guest_folder.to_s, id: "core-share%02d" % index, nfs: true, mount_options: ['nolock,vers=3,udp']
-      end
-
-      if $share_home
-        config.vm.synced_folder ENV['HOME'], ENV['HOME'], id: "home", :nfs => true, :mount_options => ['nolock,vers=3,udp']
-      end
-
-      # This shouldn't be used for the virtualbox provider (it doesn't have any effect if it is though)
-      if File.exist?(CLOUD_CONFIG_PATH)
-        config.vm.provision :file, :source => "#{CLOUD_CONFIG_PATH}", :destination => "/tmp/vagrantfile-user-data"
-        config.vm.provision :shell, inline: "mkdir /var/lib/coreos-vagrant", :privileged => true
-        config.vm.provision :shell, :inline => "mv /tmp/vagrantfile-user-data /var/lib/coreos-vagrant/", :privileged => true
-      end
-
-      config.vm.provider :virtualbox do |vb|
-        config.ignition.hostname = vm_name
-        config.ignition.drive_name = "config" + i.to_s
-        # when the ignition config doesn't exist, the plugin automatically generates a very basic Ignition with the ssh key
-        # and previously specified options (ip and hostname). Otherwise, it appends those to the provided config.ign below
-        if File.exist?(IGNITION_CONFIG_PATH)
-          config.ignition.path = 'config.ign'
-        end
-      end
-
-      # rke cli install
-      config.vm.provision "shell", path: "rke-install.sh", :privileged => true
-    end
-  end
+  # rke bootstrap
+  config.vm.provision "shell", :inline => "/opt/bin/rke up --config /usr/local/etc/cluster.yml"
 end
