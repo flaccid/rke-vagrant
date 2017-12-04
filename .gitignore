@@ -2,3 +2,4 @@
 *.vmdk
 *.img
 *.merged
+.kube*

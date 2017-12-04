@@ -1,4 +1,6 @@
-#!/bin/sh
+#!/bin/sh -e
+
+export PATH="$PATH:/opt/bin"
 
 if ! command -v rke >/dev/null; then
   echo 'install rke'
