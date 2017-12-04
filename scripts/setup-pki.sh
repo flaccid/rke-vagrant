@@ -1,9 +1,11 @@
 #!/bin/sh -e
 
+echo 'provision pki'
+
 ssh_user=ubuntu
 home="$(eval echo ~$ssh_user)"
 
-echo "setup pki (user $ssh_user ($home)"
+echo "setup pki ($ssh_user: $home)"
 
 curl -Ss https://raw.githubusercontent.com/hashicorp/vagrant/master/keys/vagrant.pub >> "$home/.ssh/authorized_keys"
 
