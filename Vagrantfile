@@ -5,35 +5,16 @@ VAGRANTFILE_API_VERSION = '2'.freeze
 
 Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   config.vm.box = 'ubuntu/xenial64'
-
   config.vm.network :private_network, ip: '10.9.0.210'
-
-  # config.vm.network "public_network"
-
-  # TODO: add this in
-  # config.ssh.forward_agent = true
-
-  # Share an additional folder to the guest VM. The first argument is
-  # the path on the host to the actual folder. The second argument is
-  # the path on the guest to mount the folder. And the optional third
-  # argument is a set of non-required options.
   config.vm.synced_folder 'etc', '/usr/local/etc'
+
+  config.ssh.forward_agent = true
+
+  # enable public networking
+  # config.vm.network "public_network"
 
   # Provider-specific configuration so you can fine-tune various
   # backing providers for Vagrant. These expose provider-specific options.
-  # Example for VirtualBox:
-  #
-  # config.vm.provider "virtualbox" do |vb|
-  #   # Don't boot with headless mode
-  #   vb.gui = true
-  #
-  #   # Use VBoxManage to customize the VM. For example to change memory:
-  #   vb.customize ["modifyvm", :id, "--memory", "1024"]
-  # end
-
-  # install docker (commented out because we need to use docker 1.12)
-  # config.vm.provision 'docker'
-
   config.vm.provider :virtualbox do |vb|
     # Don't boot with headless mode
     #   vb.gui = true
@@ -59,7 +40,13 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
       '--memory', '512',
       '--cpus', '2'
     ]
+
+    #   # Use VBoxManage to customize the VM. For example to change memory:
+    #   vb.customize ["modifyvm", :id, "--memory", "1024"]
   end
+
+  # install docker (commented out because we need to use docker 1.12)
+  # config.vm.provision 'docker'
 
   # docker 1.12
   config.vm.provision 'shell', path: 'scripts/provision-docker.sh'
@@ -72,4 +59,10 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 
   # rke bootstrap
   config.vm.provision 'shell', path: 'scripts/rke-up.sh'
+
+  # install kubectl locally
+  config.vm.provision 'shell', path: 'scripts/kubectl-install.sh'
+
+  # install kubernetes ui
+  config.vm.provision 'shell', path: 'scripts/dashboard-install.sh'
 end
