@@ -1,6 +1,8 @@
 # -*- mode: ruby -*-
 # # vi: set ft=ruby :
 
+# WARNING: for reference only; do not use verbatim
+
 require 'fileutils'
 
 Vagrant.require_version ">= 1.6.0"
