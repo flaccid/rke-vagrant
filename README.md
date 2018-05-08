@@ -6,6 +6,18 @@ Vagrant for RKE, self-contained, your local.
 
     $ vagrant up
 
+Notes:
+- the `vagrant` user is only used with the vagrant client; `ubuntu` onwards
+
+### Management URLs
+
+#### Dashboard
+
+Admin privileges is granted to the dashboard on provision. When prompted for auth initially, hit 'skip'.
+
+http://localhost:8001/api/v1/namespaces/kube-system/services/https:kubernetes-dashboard:/proxy/
+
+
 License and Authors
 -------------------
 - Author: Chris Fordham (<chris@fordham-nagy.id.au>)
