@@ -3,55 +3,50 @@
 
 VAGRANTFILE_API_VERSION = '2'.freeze
 
+# rubocop:disable BlockLength
 Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   config.vm.box = 'ubuntu/xenial64'
-  config.vm.network :private_network, ip: '10.9.0.210'
-  config.vm.synced_folder 'etc', '/usr/local/etc'
-
   config.ssh.forward_agent = true
+  config.vm.synced_folder 'etc',
+                          '/usr/local/etc',
+                          owner: 'ubuntu',
+                          group: 'ubuntu'
 
-  # enable public networking
-  # config.vm.network "public_network"
+  # networking
+  # config.vm.network 'public_network'
+  # config.vm.network :private_network, ip: '10.8.8.8'
+  config.vm.network 'forwarded_port', guest: 8001, host: 8001
+  # config.vm.network 'forwarded_port', guest: 443, host: 8443
+  # config.vm.network 'forwarded_port', guest: 6443, host: 6443
 
-  # Provider-specific configuration so you can fine-tune various
-  # backing providers for Vagrant. These expose provider-specific options.
   config.vm.provider :virtualbox do |vb|
     # Don't boot with headless mode
     #   vb.gui = true
 
-    # Enable creating symlinks between guest and host
+    # enable creating symlinks between guest and host
     vb.customize [
-      # see https://github.com/mitchellh/vagrant/issues/713#issuecomment-17296765
-      # 1) Added these lines to my config :
-      #
-      # 2) run this command in an admin command prompt on windows :
-      #    >> fsutil behavior set SymlinkEvaluation L2L:1 R2R:1 L2R:1 R2L:1
-      #    see http://technet.microsoft.com/ja-jp/library/cc785435%28v=ws.10%29.aspx
-      # 3) REBOOT HOST MACHINE
-      # 4) 'vagrant up' from an admin command prompt
       'setextradata', :id,
       'VBoxInternal2/SharedFoldersEnableSymlinksCreate/vagrant-root', '1'
     ]
 
-    # Use VBoxManage to customize the VM. For example to change memory:
+    # Use VBoxManage to customize the VM
     vb.customize [
       'modifyvm', :id,
       '--natdnshostresolver1', 'on',
-      '--memory', '512',
+      '--memory', '4096',
       '--cpus', '2'
     ]
-
-    #   # Use VBoxManage to customize the VM. For example to change memory:
-    #   vb.customize ["modifyvm", :id, "--memory", "1024"]
   end
 
-  # install docker (commented out because we need to use docker 1.12)
-  # config.vm.provision 'docker'
+  # Needed in order to run screen
+  # https://www.vagrantup.com/docs/vagrantfile/ssh_settings.html
+  # http://stackoverflow.com/questions/27545745/start-screen-detached-in-a-vagrant-box-with-ssh-how
+  config.ssh.pty = true
 
-  # docker 1.12
+  # we only want to install a supported version of docker
   config.vm.provision 'shell', path: 'scripts/provision-docker.sh'
 
-  # install the vagrant ssh key
+  # install the (insecure) vagrant ssh key
   config.vm.provision 'shell', path: 'scripts/setup-pki.sh'
 
   # rke cli install
@@ -63,6 +58,9 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
   # install kubectl locally
   config.vm.provision 'shell', path: 'scripts/kubectl-install.sh'
 
-  # install kubernetes ui
+  # install kubernetes dashboard
   config.vm.provision 'shell', path: 'scripts/dashboard-install.sh'
+
+  # local user configuration for kubectl etc.
+  config.vm.provision 'shell', path: 'scripts/kubectl-user-setup.sh'
 end
